@@ -67,13 +67,13 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
             if ((ring->capacity - (ring->write - ring->read)) >= length) {
                 size_t left = length;
 
-                while (left > 0) {
+                do {
                     size_t target = ring->write % ring->capacity, size = min(left, ring->capacity - target);
 
                     memcpy((char*)ring->buffer + target, (const char*)data + length - left, size);
                     left -= size;
                     ring->write += size;
-                }
+                } while (left > 0);
             }
             else
                 result = RING_BUFFER_OVERFLOW;
@@ -98,13 +98,13 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
             if ((ring->write - ring->read) >= length) {
                 size_t left = length;
 
-                while (left > 0) {
+                do {
                     size_t target = ring->read % ring->capacity, size = min(left, ring->capacity - target);
 
                     memcpy((char*)data + length - left, (const char*)ring->buffer + target, size);
                     left -= size;
                     ring->read += size;
-                }
+                } while (left > 0);
             }
             else
                 result = RING_BUFFER_UNDERFLOW;
