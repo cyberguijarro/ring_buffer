@@ -24,6 +24,7 @@
 #include <string.h>
 
 #ifdef RING_BUFFER_THREAD_SAFETY
+    #define __USE_UNIX98
     #include <pthread.h>
 #else
     #define pthread_mutex_t void*
@@ -60,7 +61,9 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_
         
         if (NULL != (_ring = (struct _ring_buffer*)malloc(sizeof(struct _ring_buffer)))) {
             if (NULL != (_ring->buffer = (unsigned char*)malloc(capacity))) {
-                if (0 == pthread_mutex_init(&_ring->lock, NULL)) {
+                pthread_mutexattr_t attributes;
+
+                if ((0 == pthread_mutexattr_init(&attributes)) && (0 == pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE)) && (0 == pthread_mutex_init(&_ring->lock, &attributes))) {
                     _ring->capacity = capacity;
                     _ring->read = _ring->write = _ring->rewind = 0;
                     _ring->backlog = backlog;
@@ -132,8 +135,6 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
 
     if ((NULL != ring) && (NULL != data)) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
-            int notify = 0;
-
             if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= length) {
                 size_t left = length;
 
@@ -145,16 +146,13 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
                     ring->write += size;
                 } while (left > 0);
                 
-                if ((ring->write - ring->read) >= ring->read_callback.threshold)
-                    notify = 1;
+                if (ring->read_callback.callback && ((ring->write - ring->read) >= ring->read_callback.threshold))
+                    ring->read_callback.callback(ring);
             }
             else
                 result = RING_BUFFER_OVERFLOW;
          
             pthread_mutex_unlock(&ring->lock);
-
-            if (ring->read_callback.callback && notify)
-                ring->read_callback.callback(ring);
         }
         else
             result = RING_BUFFER_CONCURRENCY_ERROR;
@@ -171,8 +169,6 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
 
     if ((NULL != ring) && (NULL != data)) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
-            int notify = 0;
-
             if ((ring->write - ring->read) >= length) {
                 size_t left = length;
 
@@ -189,16 +185,13 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
                 else
                     ring->rewind -= length;
 
-                if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold)
-                    notify = 1;
+                if (ring->write_callback.callback && ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold))
+                    ring->write_callback.callback(ring);
             }
             else
                 result = RING_BUFFER_UNDERFLOW;
 
             pthread_mutex_unlock(&ring->lock);
-
-            if (ring->write_callback.callback && notify)
-                ring->write_callback.callback(ring);
         }
         else
             result = RING_BUFFER_CONCURRENCY_ERROR;
