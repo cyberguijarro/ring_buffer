@@ -37,11 +37,18 @@
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
 
+struct _callback {
+    ring_buffer_callback callback;
+    size_t threshold;
+};
+
+
 struct _ring_buffer {
     unsigned char* buffer;
     size_t capacity, backlog;
     size_t read, write, rewind;
     pthread_mutex_t lock;
+    struct _callback read_callback, write_callback;
 };
 
 
@@ -57,6 +64,7 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_
                     _ring->capacity = capacity;
                     _ring->read = _ring->write = _ring->rewind = 0;
                     _ring->backlog = backlog;
+                    _ring->read_callback.callback = _ring->write_callback.callback = NULL;
                     *ring = _ring;
                 }
                 else {
@@ -80,11 +88,52 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_
 }
 
 
+ring_buffer_status ring_buffer_set_read_callback(ring_buffer* ring, ring_buffer_callback callback, size_t threshold)
+{
+    ring_buffer_status result = RING_BUFFER_SUCCESS;
+
+    if (NULL != ring) {
+        if (0 == pthread_mutex_lock(&ring->lock)) {
+            ring->read_callback.callback = callback;
+            ring->read_callback.threshold = threshold;
+            pthread_mutex_unlock(&ring->lock);
+        }
+        else
+            result = RING_BUFFER_CONCURRENCY_ERROR;
+    }
+    else
+        result = RING_BUFFER_INVALID_ADDRESS;
+    
+    return result;
+}
+
+
+ring_buffer_status ring_buffer_set_write_callback(ring_buffer* ring, ring_buffer_callback callback, size_t threshold) {
+    ring_buffer_status result = RING_BUFFER_SUCCESS;
+
+    if (NULL != ring) {
+        if (0 == pthread_mutex_lock(&ring->lock)) {
+            ring->write_callback.callback = callback;
+            ring->write_callback.threshold = threshold;
+            pthread_mutex_unlock(&ring->lock);
+        }
+        else
+            result = RING_BUFFER_CONCURRENCY_ERROR;
+    }
+    else
+        result = RING_BUFFER_INVALID_ADDRESS;
+    
+    return result;
+}
+
+
 ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const size_t length) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if ((NULL != ring) && (NULL != data)) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
+            int notify = 0;
+
             if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= length) {
                 size_t left = length;
 
@@ -95,11 +144,17 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
                     left -= size;
                     ring->write += size;
                 } while (left > 0);
+                
+                if ((ring->write - ring->read) >= ring->read_callback.threshold)
+                    notify = 1;
             }
             else
                 result = RING_BUFFER_OVERFLOW;
          
             pthread_mutex_unlock(&ring->lock);
+
+            if (ring->read_callback.callback && notify)
+                ring->read_callback.callback(ring);
         }
         else
             result = RING_BUFFER_CONCURRENCY_ERROR;
@@ -116,6 +171,8 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
 
     if ((NULL != ring) && (NULL != data)) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
+            int notify = 0;
+
             if ((ring->write - ring->read) >= length) {
                 size_t left = length;
 
@@ -131,11 +188,17 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
                     ring->rewind = 0;
                 else
                     ring->rewind -= length;
+
+                if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold)
+                    notify = 1;
             }
             else
                 result = RING_BUFFER_UNDERFLOW;
 
             pthread_mutex_unlock(&ring->lock);
+
+            if (ring->write_callback.callback && notify)
+                ring->write_callback.callback(ring);
         }
         else
             result = RING_BUFFER_CONCURRENCY_ERROR;

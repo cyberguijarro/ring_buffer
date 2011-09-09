@@ -35,8 +35,12 @@ typedef enum {
     RING_BUFFER_CONCURRENCY_ERROR
 } ring_buffer_status;
 
+typedef void (*ring_buffer_callback)(ring_buffer* ring);
+
 
 ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_t backlog);
+ring_buffer_status ring_buffer_set_read_callback(ring_buffer* ring, ring_buffer_callback callback, size_t threshold);
+ring_buffer_status ring_buffer_set_write_callback(ring_buffer* ring, ring_buffer_callback callback, size_t threshold);
 ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const size_t length);
 ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t length);
 ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length);

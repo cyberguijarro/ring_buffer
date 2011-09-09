@@ -72,6 +72,41 @@ static void simple() {
 }
 
 
+size_t callback_read = 0, callback_write = 0, callback_rewind = 0;
+
+
+static void callback(ring_buffer* ring) {
+    assert(RING_BUFFER_SUCCESS == ring_buffer_available(ring, &callback_read, &callback_write, &callback_rewind));
+}
+
+
+static void async() {
+    ring_buffer* buffer;
+    unsigned int foo = 0xDEADFACE;
+
+    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, 8, 0));
+
+    assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo, 1));
+    assert((callback_read == 0) && (callback_write == 0) && (callback_rewind == 0));
+    
+    assert(RING_BUFFER_SUCCESS == ring_buffer_set_read_callback(buffer, callback, 4));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo, 1));
+    assert((callback_read == 0) && (callback_write == 0) && (callback_rewind == 0));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo, 4));
+    assert((callback_read == 6) && (callback_write == 2) && (callback_rewind == 0));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_set_read_callback(buffer, NULL, 0));
+    
+    assert(RING_BUFFER_SUCCESS == ring_buffer_set_write_callback(buffer, callback, 4));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo, 1));
+    assert((callback_read == 6) && (callback_write == 2) && (callback_rewind == 0));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo, 4));
+    assert((callback_read == 1) && (callback_write == 7) && (callback_rewind == 0));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_set_write_callback(buffer, NULL, 0));
+    
+    assert(RING_BUFFER_SUCCESS == ring_buffer_destroy(buffer));
+}
+
+
 static unsigned char write_counter = 0;
 static unsigned char read_counter = 0;
 
@@ -177,6 +212,8 @@ static void interleaved(const size_t byte_count, const size_t ring_buffer_size, 
 
 int main() {
     simple();
+
+    async();
 
     sequential(1024*1024*16, 1024, 16);
     sequential(1024*1024*16, 1024, 512);
