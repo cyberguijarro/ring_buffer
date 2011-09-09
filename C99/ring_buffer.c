@@ -19,8 +19,8 @@
 
 struct _ring_buffer {
     unsigned char* buffer;
-    size_t capacity;
-    size_t read, write, backlog;
+    size_t capacity, backlog;
+    size_t read, write, rewind;
     pthread_mutex_t lock;
 };
 
@@ -35,7 +35,7 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_
             if (NULL != (_ring->buffer = (unsigned char*)malloc(capacity))) {
                 if (0 == pthread_mutex_init(&_ring->lock, NULL)) {
                     _ring->capacity = capacity;
-                    _ring->read = _ring->write = 0;
+                    _ring->read = _ring->write = _ring->rewind = 0;
                     _ring->backlog = backlog;
                     *ring = _ring;
                 }
@@ -65,7 +65,7 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
 
     if ((NULL != ring) && (NULL != data)) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
-            if ((ring->capacity - ring->backlog - (ring->write - ring->read)) >= length) {
+            if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= length) {
                 size_t left = length;
 
                 do {
@@ -106,6 +106,11 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
                     left -= size;
                     ring->read += size;
                 } while (left > 0);
+                
+                if (ring->rewind < length)
+                    ring->rewind = 0;
+                else
+                    ring->rewind -= length;
             }
             else
                 result = RING_BUFFER_UNDERFLOW;
@@ -127,8 +132,10 @@ ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length) {
 
     if (NULL != ring) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
-            if ((length <= ring->backlog) && (length <= ring->read))
+            if ((length <= ring->backlog) && (length <= ring->read)) {
                 ring->read -= length;
+                ring->rewind += length;
+            }
             else
                 result = RING_BUFFER_UNDERFLOW;
 
@@ -150,9 +157,9 @@ ring_buffer_status ring_buffer_available(ring_buffer* ring, size_t* read, size_t
     if ((NULL != ring) && (NULL != read) && (NULL != write)) {
         if (0 == pthread_mutex_lock(&ring->lock)) {
             *read = ring->write - ring->read;
-            *write = ring->capacity - ring->backlog - *read;
-            *rewind = min(ring->backlog, *read);
-        
+            *write = ring->capacity - ring->backlog + ring->rewind - *read;
+            *rewind = min(ring->read, ring->backlog - ring->rewind);
+            
             pthread_mutex_unlock(&ring->lock);
         }
         else
