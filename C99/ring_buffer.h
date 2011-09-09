@@ -17,10 +17,11 @@ typedef enum {
 } ring_buffer_status;
 
 
-ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity);
+ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_t backlog);
 ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const size_t length);
 ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t length);
-ring_buffer_status ring_buffer_available(ring_buffer* ring, size_t* read, size_t* write);
+ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length);
+ring_buffer_status ring_buffer_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind);
 ring_buffer_status ring_buffer_destroy(ring_buffer* ring);
 
 

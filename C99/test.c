@@ -9,7 +9,8 @@ static void simple() {
     unsigned short foo2 = 0xDEAD;
     unsigned int foo4 = 0xDEADFACE;
 
-    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, 6));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, 8, 2));
+    assert(RING_BUFFER_UNDERFLOW == ring_buffer_rewind(buffer, 2));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo1, 1));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo2, 2));
     assert(RING_BUFFER_OVERFLOW == ring_buffer_write(buffer, &foo4, 4));
@@ -20,6 +21,10 @@ static void simple() {
     assert((RING_BUFFER_UNDERFLOW == ring_buffer_read(buffer, &foo4, 4)) && (foo4 == 0xDEADFACE));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo2, 2));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo4, 4));
+    assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xDEAD));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo1, 1));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_rewind(buffer, 2));
+    assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xDEAD));
     assert(RING_BUFFER_SUCCESS == ring_buffer_destroy(buffer));
 }
 
@@ -55,7 +60,7 @@ static void sequential(const size_t byte_count, const size_t ring_buffer_size, c
     void* temp_buffer = malloc(max_block_size);
     size_t count = 0;
 
-    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, ring_buffer_size));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, ring_buffer_size, ring_buffer_size / 8));
     sync();
 
     while (count < byte_count) {
@@ -80,7 +85,7 @@ static void sequential(const size_t byte_count, const size_t ring_buffer_size, c
             if (status == RING_BUFFER_UNDERFLOW) {
                 size_t dummy;
 
-                assert(RING_BUFFER_SUCCESS == ring_buffer_available(buffer, &length, &dummy));
+                assert(RING_BUFFER_SUCCESS == ring_buffer_available(buffer, &length, &dummy, &dummy));
                 assert(RING_BUFFER_SUCCESS == ring_buffer_read(buffer, temp_buffer, length));
             }
             
@@ -99,7 +104,7 @@ static void interleaved(const size_t byte_count, const size_t ring_buffer_size, 
     void* temp_buffer = malloc(max_block_size);
     size_t count = 0;
 
-    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, ring_buffer_size));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, ring_buffer_size, ring_buffer_size / 8));
     sync();
 
     while (count < byte_count) {
