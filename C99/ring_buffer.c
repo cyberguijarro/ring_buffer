@@ -27,11 +27,12 @@
     #define __USE_UNIX98
     #include <pthread.h>
 #else
-    #define pthread_mutex_t void*
     #define pthread_mutex_init(mutex, attr) 0
     #define pthread_mutex_lock(mutex) 0
     #define pthread_mutex_unlock(mutex)
     #define pthread_mutex_destroy(mutex)
+    #define pthread_mutexattr_init(attr) 0
+    #define pthread_mutexattr_settype(attr, type) 0
 #endif
 
 
@@ -48,7 +49,9 @@ struct _ring_buffer {
     unsigned char* buffer;
     size_t capacity, backlog;
     size_t read, write, rewind;
+#ifdef RING_BUFFER_THREAD_SAFETY
     pthread_mutex_t lock;
+#endif
     struct _callback read_callback, write_callback;
 };
 
@@ -61,7 +64,9 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_
         
         if (NULL != (_ring = (struct _ring_buffer*)malloc(sizeof(struct _ring_buffer)))) {
             if (NULL != (_ring->buffer = (unsigned char*)malloc(capacity))) {
+#ifdef RING_BUFFER_THREAD_SAFETY
                 pthread_mutexattr_t attributes;
+#endif
 
                 if ((0 == pthread_mutexattr_init(&attributes)) && (0 == pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE)) && (0 == pthread_mutex_init(&_ring->lock, &attributes))) {
                     _ring->capacity = capacity;
