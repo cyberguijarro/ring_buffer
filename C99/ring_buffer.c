@@ -26,6 +26,9 @@
 #ifdef RING_BUFFER_THREAD_SAFETY
     #define __USE_UNIX98
     #include <pthread.h>
+
+    #define ENTER_CRITICAL(ring) if (0 == pthread_mutex_lock(&ring->lock)) {
+    #define EXIT_CRITICAL(ring) pthread_mutex_unlock(&ring->lock); } else result = RING_BUFFER_CONCURRENCY_ERROR
 #else
     #define pthread_mutex_init(mutex, attr) 0
     #define pthread_mutex_lock(mutex) 0
@@ -33,11 +36,14 @@
     #define pthread_mutex_destroy(mutex)
     #define pthread_mutexattr_init(attr) 0
     #define pthread_mutexattr_settype(attr, type) 0
+    
+    #define ENTER_CRITICAL(ring)
+    #define EXIT_CRITICAL(ring)
 #endif
 
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-
+            
 
 struct _callback {
     ring_buffer_callback callback;
@@ -101,13 +107,12 @@ ring_buffer_status ring_buffer_set_read_callback(ring_buffer* ring, ring_buffer_
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if (NULL != ring) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            ring->read_callback.callback = callback;
-            ring->read_callback.threshold = threshold;
-            pthread_mutex_unlock(&ring->lock);
-        }
-        else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+        ENTER_CRITICAL(ring);
+        
+        ring->read_callback.callback = callback;
+        ring->read_callback.threshold = threshold;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -120,13 +125,12 @@ ring_buffer_status ring_buffer_set_write_callback(ring_buffer* ring, ring_buffer
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if (NULL != ring) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            ring->write_callback.callback = callback;
-            ring->write_callback.threshold = threshold;
-            pthread_mutex_unlock(&ring->lock);
-        }
-        else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+        ENTER_CRITICAL(ring);
+        
+        ring->write_callback.callback = callback;
+        ring->write_callback.threshold = threshold;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -139,28 +143,26 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if ((NULL != ring) && (NULL != data)) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= length) {
-                size_t left = length;
+        ENTER_CRITICAL(ring);
 
-                do {
-                    size_t target = ring->write % ring->capacity, size = min(left, ring->capacity - target);
+        if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= length) {
+            size_t left = length;
 
-                    memcpy((char*)ring->buffer + target, (const char*)data + length - left, size);
-                    left -= size;
-                    ring->write += size;
-                } while (left > 0);
-                
-                if (ring->read_callback.callback && ((ring->write - ring->read) >= ring->read_callback.threshold))
-                    ring->read_callback.callback(ring);
-            }
-            else
-                result = RING_BUFFER_OVERFLOW;
-         
-            pthread_mutex_unlock(&ring->lock);
+            do {
+                size_t target = ring->write % ring->capacity, size = min(left, ring->capacity - target);
+
+                memcpy((char*)ring->buffer + target, (const char*)data + length - left, size);
+                left -= size;
+                ring->write += size;
+            } while (left > 0);
+
+            if (ring->read_callback.callback && ((ring->write - ring->read) >= ring->read_callback.threshold))
+                ring->read_callback.callback(ring);
         }
         else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+            result = RING_BUFFER_OVERFLOW;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -173,33 +175,31 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if ((NULL != ring) && (NULL != data)) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            if ((ring->write - ring->read) >= length) {
-                size_t left = length;
+        ENTER_CRITICAL(ring);
 
-                do {
-                    size_t target = ring->read % ring->capacity, size = min(left, ring->capacity - target);
+        if ((ring->write - ring->read) >= length) {
+            size_t left = length;
 
-                    memcpy((char*)data + length - left, (const char*)ring->buffer + target, size);
-                    left -= size;
-                    ring->read += size;
-                } while (left > 0);
-                
-                if (ring->rewind < length)
-                    ring->rewind = 0;
-                else
-                    ring->rewind -= length;
+            do {
+                size_t target = ring->read % ring->capacity, size = min(left, ring->capacity - target);
 
-                if (ring->write_callback.callback && ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold))
-                    ring->write_callback.callback(ring);
-            }
+                memcpy((char*)data + length - left, (const char*)ring->buffer + target, size);
+                left -= size;
+                ring->read += size;
+            } while (left > 0);
+
+            if (ring->rewind < length)
+                ring->rewind = 0;
             else
-                result = RING_BUFFER_UNDERFLOW;
+                ring->rewind -= length;
 
-            pthread_mutex_unlock(&ring->lock);
+            if (ring->write_callback.callback && ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold))
+                ring->write_callback.callback(ring);
         }
         else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+            result = RING_BUFFER_UNDERFLOW;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -212,18 +212,16 @@ ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if (NULL != ring) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            if ((length <= ring->backlog) && (length <= ring->read)) {
-                ring->read -= length;
-                ring->rewind += length;
-            }
-            else
-                result = RING_BUFFER_UNDERFLOW;
-
-            pthread_mutex_unlock(&ring->lock);
+        ENTER_CRITICAL(ring);
+        
+        if ((length <= ring->backlog) && (length <= ring->read)) {
+            ring->read -= length;
+            ring->rewind += length;
         }
         else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+            result = RING_BUFFER_UNDERFLOW;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -236,20 +234,18 @@ ring_buffer_status ring_buffer_skip(ring_buffer* ring, const size_t length) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if (NULL != ring) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            if (length <= ring->write - ring->read) {
-                ring->read += length;
+        ENTER_CRITICAL(ring);
+        
+        if (length <= ring->write - ring->read) {
+            ring->read += length;
 
-                if (ring->rewind > 0)
-                    ring->rewind = (length > ring->rewind) ? 0 : ring->rewind - length;
-            }
-            else
-                result = RING_BUFFER_UNDERFLOW;
-
-            pthread_mutex_unlock(&ring->lock);
+            if (ring->rewind > 0)
+                ring->rewind = (length > ring->rewind) ? 0 : ring->rewind - length;
         }
         else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+            result = RING_BUFFER_UNDERFLOW;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -262,15 +258,13 @@ ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, si
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if ((NULL != ring) && (NULL != read) && (NULL != write)) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            *read = ring->write - ring->read;
-            *write = ring->capacity - ring->backlog + ring->rewind - *read;
-            *rewind = min(ring->read, ring->backlog - ring->rewind);
-            
-            pthread_mutex_unlock(&ring->lock);
-        }
-        else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+        ENTER_CRITICAL(ring);
+        
+        *read = ring->write - ring->read;
+        *write = ring->capacity - ring->backlog + ring->rewind - *read;
+        *rewind = min(ring->read, ring->backlog - ring->rewind);
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -283,14 +277,12 @@ ring_buffer_status ring_buffer_get_positions(ring_buffer* ring, size_t* read, si
     ring_buffer_status result = RING_BUFFER_SUCCESS;
     
     if ((NULL != ring) && (NULL != read) && (NULL != write)) {
-        if (0 == pthread_mutex_lock(&ring->lock)) {
-            *read = ring->read;
-            *write = ring->write;
-            
-            pthread_mutex_unlock(&ring->lock);
-        }
-        else
-            result = RING_BUFFER_CONCURRENCY_ERROR;
+        ENTER_CRITICAL(ring);
+        
+        *read = ring->read;
+        *write = ring->write;
+        
+        EXIT_CRITICAL(ring);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
