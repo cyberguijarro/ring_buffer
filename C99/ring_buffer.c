@@ -188,10 +188,7 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
                 ring->read += size;
             } while (left > 0);
 
-            if (ring->rewind < length)
-                ring->rewind = 0;
-            else
-                ring->rewind -= length;
+            ring->rewind = (ring->rewind < length) ? 0 : ring->rewind - length;
 
             if (ring->write_callback.callback && ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold))
                 ring->write_callback.callback(ring);
@@ -238,9 +235,7 @@ ring_buffer_status ring_buffer_skip(ring_buffer* ring, const size_t length) {
         
         if (length <= ring->write - ring->read) {
             ring->read += length;
-
-            if (ring->rewind > 0)
-                ring->rewind = (length > ring->rewind) ? 0 : ring->rewind - length;
+            ring->rewind = (length > ring->rewind) ? 0 : ring->rewind - length;
         }
         else
             result = RING_BUFFER_UNDERFLOW;
