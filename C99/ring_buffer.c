@@ -28,7 +28,7 @@
     #include <pthread.h>
 
     #define ENTER_CRITICAL(ring) if (0 == pthread_mutex_lock(&ring->lock)) {
-    #define EXIT_CRITICAL(ring) pthread_mutex_unlock(&ring->lock); } else result = RING_BUFFER_CONCURRENCY_ERROR
+    #define EXIT_CRITICAL(ring, result) pthread_mutex_unlock(&ring->lock); } else result = RING_BUFFER_CONCURRENCY_ERROR
 #else
     #define pthread_mutex_init(mutex, attr) 0
     #define pthread_mutex_lock(mutex) 0
@@ -38,7 +38,7 @@
     #define pthread_mutexattr_settype(attr, type) 0
     
     #define ENTER_CRITICAL(ring)
-    #define EXIT_CRITICAL(ring)
+    #define EXIT_CRITICAL(ring, result)
 #endif
 
 
@@ -112,7 +112,7 @@ ring_buffer_status ring_buffer_set_read_callback(ring_buffer* ring, ring_buffer_
         ring->read_callback.callback = callback;
         ring->read_callback.threshold = threshold;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -130,7 +130,7 @@ ring_buffer_status ring_buffer_set_write_callback(ring_buffer* ring, ring_buffer
         ring->write_callback.callback = callback;
         ring->write_callback.threshold = threshold;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -162,7 +162,7 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
         else
             result = RING_BUFFER_OVERFLOW;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -199,7 +199,7 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
         else
             result = RING_BUFFER_UNDERFLOW;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -221,7 +221,7 @@ ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length) {
         else
             result = RING_BUFFER_UNDERFLOW;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -245,7 +245,7 @@ ring_buffer_status ring_buffer_skip(ring_buffer* ring, const size_t length) {
         else
             result = RING_BUFFER_UNDERFLOW;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -264,7 +264,7 @@ ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, si
         *write = ring->capacity - ring->backlog + ring->rewind - *read;
         *rewind = min(ring->read, ring->backlog - ring->rewind);
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
@@ -282,7 +282,7 @@ ring_buffer_status ring_buffer_get_positions(ring_buffer* ring, size_t* read, si
         *read = ring->read;
         *write = ring->write;
         
-        EXIT_CRITICAL(ring);
+        EXIT_CRITICAL(ring, result);
     }
     else
         result = RING_BUFFER_INVALID_ADDRESS;
