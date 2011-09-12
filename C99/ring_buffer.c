@@ -232,6 +232,32 @@ ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length) {
 }
 
 
+ring_buffer_status ring_buffer_skip(ring_buffer* ring, const size_t length) {
+    ring_buffer_status result = RING_BUFFER_SUCCESS;
+
+    if (NULL != ring) {
+        if (0 == pthread_mutex_lock(&ring->lock)) {
+            if (length <= ring->write - ring->read) {
+                ring->read += length;
+
+                if (ring->rewind > 0)
+                    ring->rewind = (length > ring->rewind) ? 0 : ring->rewind - length;
+            }
+            else
+                result = RING_BUFFER_UNDERFLOW;
+
+            pthread_mutex_unlock(&ring->lock);
+        }
+        else
+            result = RING_BUFFER_CONCURRENCY_ERROR;
+    }
+    else
+        result = RING_BUFFER_INVALID_ADDRESS;
+    
+    return result;
+}
+
+
 ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 

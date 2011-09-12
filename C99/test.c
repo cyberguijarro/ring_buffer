@@ -37,6 +37,10 @@ static void simple() {
     assert(RING_BUFFER_UNDERFLOW == ring_buffer_rewind(buffer, 2));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write, &rewind)) && (read == 0) && (write == 6) && (rewind == 0));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 0) && (write == 0));
+    
+    assert(RING_BUFFER_UNDERFLOW == ring_buffer_skip(buffer, 2));
+    assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write, &rewind)) && (read == 0) && (write == 6) && (rewind == 0));
+    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 0) && (write == 0));
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo1, 1));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo2, 2));
@@ -75,9 +79,13 @@ static void simple() {
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write, &rewind)) && (read == 7) && (write == 1) && (rewind == 0));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 7) && (write == 14));
 
-    assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xDEAD));
+    assert(RING_BUFFER_SUCCESS == ring_buffer_skip(buffer, 2));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write, &rewind)) && (read == 5) && (write == 1) && (rewind == 2));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 9) && (write == 14));
+
+    assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xFACE));
+    assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write, &rewind)) && (read == 3) && (write == 3) && (rewind == 2));
+    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 11) && (write == 14));
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_destroy(buffer));
 }
