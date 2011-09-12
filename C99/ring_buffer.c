@@ -232,7 +232,7 @@ ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length) {
 }
 
 
-ring_buffer_status ring_buffer_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind) {
+ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if ((NULL != ring) && (NULL != read) && (NULL != write)) {

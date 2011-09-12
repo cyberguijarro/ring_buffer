@@ -44,7 +44,7 @@ ring_buffer_status ring_buffer_set_write_callback(ring_buffer* ring, ring_buffer
 ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const size_t length);
 ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t length);
 ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length);
-ring_buffer_status ring_buffer_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind);
+ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind);
 ring_buffer_status ring_buffer_get_positions(ring_buffer* ring, size_t* read, size_t* write);
 ring_buffer_status ring_buffer_destroy(ring_buffer* ring);
 
