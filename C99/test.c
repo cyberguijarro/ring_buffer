@@ -229,6 +229,27 @@ static void interleaved(const size_t byte_count, const size_t ring_buffer_size, 
 }
 
 
+static void huge() {
+    const size_t buffer_size = 1024*1024;
+    ring_buffer* buffer;
+    const size_t temp_buffer_size = 1024*1024;
+    void* temp_buffer = malloc(temp_buffer_size);
+    size_t read, write, rewind;
+
+    assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, buffer_size, 0));
+
+    for (int i = 0; i <= 4096; i++) {
+        assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, temp_buffer, temp_buffer_size));
+        assert(RING_BUFFER_SUCCESS == ring_buffer_read(buffer, temp_buffer, temp_buffer_size));
+    }
+    
+    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == buffer_size) && (write == buffer_size));
+
+    assert(RING_BUFFER_SUCCESS == ring_buffer_destroy(buffer));
+    free(temp_buffer);
+}
+
+
 int main() {
     simple();
 
@@ -241,6 +262,8 @@ int main() {
     interleaved(1024*1024*16, 1024, 16);
     interleaved(1024*1024*16, 1024, 512);
     interleaved(1024*1024*16, 1024, 1024);
+    
+    huge();
 
     return 0;   
 }
