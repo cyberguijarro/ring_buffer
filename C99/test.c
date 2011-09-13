@@ -234,7 +234,7 @@ static void huge() {
     ring_buffer* buffer;
     const size_t temp_buffer_size = 1024*1024;
     void* temp_buffer = malloc(temp_buffer_size);
-    size_t read, write, rewind;
+    size_t read, write;
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, buffer_size, 0));
 
