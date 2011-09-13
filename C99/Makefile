@@ -5,4 +5,4 @@ LDFLAGS=-lrt
 test: test.o ring_buffer.o
 
 clean:
-	$(RM) *.o test
+	$(RM) *.o *.a test
