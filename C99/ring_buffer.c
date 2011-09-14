@@ -43,6 +43,8 @@
 
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
+#define ring_buffer_readable(ring) (ring->write - ring->read)
+#define ring_buffer_writable(ring) (ring->capacity - ring_buffer_readable(ring))
             
 
 struct _callback {
@@ -143,7 +145,7 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
     if ((NULL != ring) && (NULL != data)) {
         ENTER_CRITICAL(ring);
 
-        if ((ring->capacity - (ring->write - ring->read)) >= length) {
+        if (ring_buffer_writable(ring) >= length) {
             size_t left = length;
 
             do {
@@ -154,7 +156,7 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
                 ring->write += size;
             } while (left > 0);
 
-            if (ring->read_callback.callback && ((ring->write - ring->read) >= ring->read_callback.threshold))
+            if (ring->read_callback.callback && (ring_buffer_readable(ring) >= ring->read_callback.threshold))
                 ring->read_callback.callback(ring);
         }
         else
@@ -175,7 +177,7 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
     if ((NULL != ring) && (NULL != data)) {
         ENTER_CRITICAL(ring);
 
-        if ((ring->write - ring->read) >= length) {
+        if (ring_buffer_readable(ring) >= length) {
             size_t left = length;
 
             do {
@@ -186,7 +188,7 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
                 ring->read += size;
             } while (left > 0);
 
-            if (ring->write_callback.callback && ((ring->capacity - (ring->write - ring->read)) >= ring->write_callback.threshold))
+            if (ring->write_callback.callback && (ring_buffer_writable(ring) >= ring->write_callback.threshold))
                 ring->write_callback.callback(ring);
         }
         else
@@ -207,8 +209,8 @@ ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, si
     if ((NULL != ring) && (NULL != read) && (NULL != write)) {
         ENTER_CRITICAL(ring);
         
-        *read = ring->write - ring->read;
-        *write = ring->capacity - *read;
+        *read = ring_buffer_readable(ring);
+        *write = ring_buffer_writable(ring);
         
         EXIT_CRITICAL(ring, result);
     }
