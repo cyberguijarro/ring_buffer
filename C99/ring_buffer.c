@@ -54,7 +54,7 @@ struct _callback {
 
 
 struct _ring_buffer {
-    unsigned char* buffer;
+    void* buffer;
     size_t capacity, read, write;
 #ifdef RING_BUFFER_THREAD_SAFETY
     pthread_mutex_t lock;
@@ -70,7 +70,7 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity) {
         struct _ring_buffer* _ring;
         
         if (NULL != (_ring = (struct _ring_buffer*)malloc(sizeof(struct _ring_buffer)))) {
-            if (NULL != (_ring->buffer = (unsigned char*)malloc(capacity))) {
+            if (NULL != (_ring->buffer = malloc(capacity))) {
 #ifdef RING_BUFFER_THREAD_SAFETY
                 pthread_mutexattr_t attributes;
 #endif
