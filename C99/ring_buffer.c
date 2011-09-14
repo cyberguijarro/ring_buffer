@@ -221,24 +221,6 @@ ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, si
 }
 
 
-ring_buffer_status ring_buffer_get_positions(ring_buffer* ring, size_t* read, size_t* write) {
-    ring_buffer_status result = RING_BUFFER_SUCCESS;
-    
-    if ((NULL != ring) && (NULL != read) && (NULL != write)) {
-        ENTER_CRITICAL(ring);
-        
-        *read = ring->read;
-        *write = ring->write;
-        
-        EXIT_CRITICAL(ring, result);
-    }
-    else
-        result = RING_BUFFER_INVALID_ADDRESS;
-    
-    return result;
-}
-
-
 ring_buffer_status ring_buffer_destroy(ring_buffer* ring) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
     

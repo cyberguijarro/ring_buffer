@@ -32,44 +32,35 @@ static void simple() {
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, 6));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 0) && (write == 6));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 0) && (write == 0));
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo1, 1));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo2, 2));
     assert(RING_BUFFER_OVERFLOW == ring_buffer_write(buffer, &foo4, 4));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 3) && (write == 3));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 0) && (write == 3));
 
     assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo1, 1)) && (foo1 == 0xDE));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 2) && (write == 4));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 1) && (write == 3));
 
     assert((RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo4, 4)));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 6) && (write == 0));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 1) && (write == 7));
 
     assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xDEAD));
     assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo4, 4)) && (foo4 == 0xDEADFACE));
     assert((RING_BUFFER_UNDERFLOW == ring_buffer_read(buffer, &foo4, 4)) && (foo4 == 0xDEADFACE));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 0) && (write == 6));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 7) && (write == 7));
     
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo2, 2));
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo4, 4));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 6) && (write == 0));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 7) && (write == 13));
     
     assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xDEAD));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 4) && (write == 2));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 9) && (write == 13));
     
     assert(RING_BUFFER_SUCCESS == ring_buffer_write(buffer, &foo1, 1));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 5) && (write == 1));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 9) && (write == 14));
 
     assert((RING_BUFFER_SUCCESS == ring_buffer_read(buffer, &foo2, 2)) && (foo2 == 0xFACE));
     assert((RING_BUFFER_SUCCESS == ring_buffer_get_available(buffer, &read, &write)) && (read == 3) && (write == 3));
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == 11) && (write == 14));
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_destroy(buffer));
 }
@@ -218,7 +209,6 @@ static void huge() {
     ring_buffer* buffer;
     const size_t temp_buffer_size = 1024*1024;
     void* temp_buffer = malloc(temp_buffer_size);
-    size_t read, write;
 
     assert(RING_BUFFER_SUCCESS == ring_buffer_create(&buffer, buffer_size));
 
@@ -227,8 +217,6 @@ static void huge() {
         assert(RING_BUFFER_SUCCESS == ring_buffer_read(buffer, temp_buffer, temp_buffer_size));
     }
     
-    assert((RING_BUFFER_SUCCESS == ring_buffer_get_positions(buffer, &read, &write)) && (read == buffer_size) && (write == buffer_size));
-
     assert(RING_BUFFER_SUCCESS == ring_buffer_destroy(buffer));
     free(temp_buffer);
 }
