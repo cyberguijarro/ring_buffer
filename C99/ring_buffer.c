@@ -53,8 +53,7 @@ struct _callback {
 
 struct _ring_buffer {
     unsigned char* buffer;
-    size_t capacity, backlog;
-    size_t read, write, rewind;
+    size_t capacity, read, write;
 #ifdef RING_BUFFER_THREAD_SAFETY
     pthread_mutex_t lock;
 #endif
@@ -62,7 +61,7 @@ struct _ring_buffer {
 };
 
 
-ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_t backlog) {
+ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if (NULL != ring) {
@@ -76,8 +75,7 @@ ring_buffer_status ring_buffer_create(ring_buffer** ring, size_t capacity, size_
 
                 if ((0 == pthread_mutexattr_init(&attributes)) && (0 == pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE)) && (0 == pthread_mutex_init(&_ring->lock, &attributes))) {
                     _ring->capacity = capacity;
-                    _ring->read = _ring->write = _ring->rewind = 0;
-                    _ring->backlog = backlog;
+                    _ring->read = _ring->write = 0;
                     _ring->read_callback.callback = _ring->write_callback.callback = NULL;
                     *ring = _ring;
                 }
@@ -145,7 +143,7 @@ ring_buffer_status ring_buffer_write(ring_buffer* ring, const void* data, const 
     if ((NULL != ring) && (NULL != data)) {
         ENTER_CRITICAL(ring);
 
-        if ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= length) {
+        if ((ring->capacity - (ring->write - ring->read)) >= length) {
             size_t left = length;
 
             do {
@@ -188,9 +186,7 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
                 ring->read += size;
             } while (left > 0);
 
-            ring->rewind = (ring->rewind < length) ? 0 : ring->rewind - length;
-
-            if (ring->write_callback.callback && ((ring->capacity - ring->backlog + ring->rewind - (ring->write - ring->read)) >= ring->write_callback.threshold))
+            if (ring->write_callback.callback && ((ring->capacity - (ring->write - ring->read)) >= ring->write_callback.threshold))
                 ring->write_callback.callback(ring);
         }
         else
@@ -205,59 +201,14 @@ ring_buffer_status ring_buffer_read(ring_buffer* ring, void* data, const size_t 
 }
 
 
-ring_buffer_status ring_buffer_rewind(ring_buffer* ring, const size_t length) {
-    ring_buffer_status result = RING_BUFFER_SUCCESS;
-
-    if (NULL != ring) {
-        ENTER_CRITICAL(ring);
-        
-        if ((length <= ring->backlog) && (length <= ring->read)) {
-            ring->read -= length;
-            ring->rewind += length;
-        }
-        else
-            result = RING_BUFFER_UNDERFLOW;
-        
-        EXIT_CRITICAL(ring, result);
-    }
-    else
-        result = RING_BUFFER_INVALID_ADDRESS;
-    
-    return result;
-}
-
-
-ring_buffer_status ring_buffer_skip(ring_buffer* ring, const size_t length) {
-    ring_buffer_status result = RING_BUFFER_SUCCESS;
-
-    if (NULL != ring) {
-        ENTER_CRITICAL(ring);
-        
-        if (length <= ring->write - ring->read) {
-            ring->read += length;
-            ring->rewind = (length > ring->rewind) ? 0 : ring->rewind - length;
-        }
-        else
-            result = RING_BUFFER_UNDERFLOW;
-        
-        EXIT_CRITICAL(ring, result);
-    }
-    else
-        result = RING_BUFFER_INVALID_ADDRESS;
-    
-    return result;
-}
-
-
-ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, size_t* write, size_t* rewind) {
+ring_buffer_status ring_buffer_get_available(ring_buffer* ring, size_t* read, size_t* write) {
     ring_buffer_status result = RING_BUFFER_SUCCESS;
 
     if ((NULL != ring) && (NULL != read) && (NULL != write)) {
         ENTER_CRITICAL(ring);
         
         *read = ring->write - ring->read;
-        *write = ring->capacity - ring->backlog + ring->rewind - *read;
-        *rewind = min(ring->read, ring->backlog - ring->rewind);
+        *write = ring->capacity - *read;
         
         EXIT_CRITICAL(ring, result);
     }
