@@ -59,17 +59,19 @@ static void simple() {
         buffer.write(&foo4, 4);
         buffer.get_available(read, write);
         assert((read == 6) && (write == 0));
+       
+        ring_buffer other(buffer);
         
-        buffer.read(&foo2, 2);
-        buffer.get_available(read, write);
+        other.read(&foo2, 2);
+        other.get_available(read, write);
         assert((read == 4) && (write == 2));
 
-        buffer.write(&foo1, 1);
-        buffer.get_available(read, write);
+        other.write(&foo1, 1);
+        other.get_available(read, write);
         assert((read == 5) && (write == 1));
         
-        buffer.read(&foo2, 2);
-        buffer.get_available(read, write);
+        other.read(&foo2, 2);
+        other.get_available(read, write);
         assert((read == 3) && (write == 3));
     } catch (ring_buffer_exception) {
         assert(false);

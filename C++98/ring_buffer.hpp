@@ -74,6 +74,24 @@ public:
     }
 
 
+    generic_ring_buffer(const generic_ring_buffer<T>& other) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) : capacity(other.capacity), _read(other._read), _write(other._write), read_callback(other.read_callback), write_callback(other.write_callback) {
+        if (NULL != (buffer = reinterpret_cast<T*>(malloc(capacity)))) {
+#ifdef RING_BUFFER_THREAD_SAFETY
+            pthread_mutexattr_t attributes;
+#endif
+
+            if ((0 == pthread_mutexattr_init(&attributes)) && (0 == pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE)) && (0 == pthread_mutex_init(&lock, &attributes)))
+                memcpy(buffer, other.buffer, capacity);
+            else {
+                free(buffer);
+                throw ring_buffer_concurrency_error_exception(); 
+            }
+        }
+        else
+            throw ring_buffer_out_of_memory_exception();
+    }
+
+
     void set_read_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) {
         ENTER_CRITICAL();
 
