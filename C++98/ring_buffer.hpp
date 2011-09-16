@@ -56,7 +56,7 @@ public:
     typedef void (*ring_buffer_callback)(generic_ring_buffer<T>* ring);
 
 
-    generic_ring_buffer(size_t capacity) : capacity(capacity), _read(0), _write(0) {
+    generic_ring_buffer(size_t capacity) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) : capacity(capacity), _read(0), _write(0) {
         if (NULL != (buffer = reinterpret_cast<T*>(malloc(capacity)))) {
 #ifdef RING_BUFFER_THREAD_SAFETY
             pthread_mutexattr_t attributes;
@@ -74,7 +74,7 @@ public:
     }
 
 
-    void set_read_callback(ring_buffer_callback callback, size_t threshold) {
+    void set_read_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) {
         ENTER_CRITICAL();
 
         read_callback.callback = callback;
@@ -84,7 +84,7 @@ public:
     }
 
 
-    void set_write_callback(ring_buffer_callback callback, size_t threshold) {
+    void set_write_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) {
         ENTER_CRITICAL();
 
         write_callback.callback = callback;
@@ -94,7 +94,7 @@ public:
     }
 
 
-    void write(const T* data, size_t length) {
+    void write(const T* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_overflow_exception, ring_buffer_invalid_address_exception) {
         if (NULL != data) {
             ENTER_CRITICAL();
 
@@ -122,7 +122,7 @@ public:
     }
 
 
-    void read(T* data, size_t length) {
+    void read(T* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_underflow_exception, ring_buffer_invalid_address_exception) {
         if (NULL != data) {
             ENTER_CRITICAL();
 
@@ -150,7 +150,7 @@ public:
     }
 
 
-    void get_available(size_t& read, size_t& write) {
+    void get_available(size_t& read, size_t& write) throw (ring_buffer_concurrency_error_exception)  {
         ENTER_CRITICAL();
 
         read = ring_buffer_readable();
@@ -160,7 +160,7 @@ public:
     }
 
 
-    ~generic_ring_buffer() {
+    ~generic_ring_buffer() throw (ring_buffer_concurrency_error_exception) {
         if (0 == pthread_mutex_lock(&lock)) {
             free(buffer);
             pthread_mutex_unlock(&lock);
