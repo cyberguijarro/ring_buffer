@@ -150,7 +150,7 @@ public:
     }
 
 
-    void get_available(size_t& read, size_t& write) throw (ring_buffer_concurrency_error_exception)  {
+    void get_available(size_t& read, size_t& write) throw (ring_buffer_concurrency_error_exception) {
         ENTER_CRITICAL();
 
         read = ring_buffer_readable();

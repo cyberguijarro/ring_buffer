@@ -152,7 +152,7 @@ static void sequential(const size_t byte_count, const size_t ring_buffer_size, c
 
             // Fill the buffer until an overflow is detected
             while (proceed) {
-                length = rand() % max_block_size;;
+                length = rand() % max_block_size;
                 produce(temp_buffer, length);
 
                 try { buffer.write(temp_buffer, length); } catch (ring_buffer_exception) { proceed = 0; }
