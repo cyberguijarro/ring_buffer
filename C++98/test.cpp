@@ -19,6 +19,7 @@
 
 
 #include <cassert>
+#include <cstdlib>
 
 #include "ring_buffer.hpp"
 
