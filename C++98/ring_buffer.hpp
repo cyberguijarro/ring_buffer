@@ -43,6 +43,7 @@ public:
 
     ring_buffer(size_t capacity) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception);
     ring_buffer(ring_buffer& other) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception);
+    ring_buffer& operator=(ring_buffer& other) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception);
     void set_read_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception);
     void set_write_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception);
     void write(const void* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_overflow_exception, ring_buffer_invalid_address_exception);

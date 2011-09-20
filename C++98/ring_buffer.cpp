@@ -199,6 +199,7 @@ struct ring_buffer::ring_buffer_implementation {
 
 ring_buffer::ring_buffer(size_t capacity) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) : implementation(new ring_buffer_implementation(capacity, reinterpret_cast<ring_buffer*>(this))) { }
 ring_buffer::ring_buffer(ring_buffer& other) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) : implementation(new ring_buffer_implementation(other.implementation, reinterpret_cast<ring_buffer*>(this))) { }
+ring_buffer& ring_buffer::operator=(ring_buffer& other) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) { delete implementation; implementation = new ring_buffer_implementation(other.implementation, reinterpret_cast<ring_buffer*>(this)); return *this; }
 void ring_buffer::set_read_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) { implementation->set_read_callback(callback, threshold); }
 void ring_buffer::set_write_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) { implementation->set_write_callback(callback, threshold); }
 void ring_buffer::write(const void* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_overflow_exception, ring_buffer_invalid_address_exception) { implementation->write(data, length); }
