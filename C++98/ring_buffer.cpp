@@ -141,7 +141,7 @@ struct ring_buffer::ring_buffer_implementation {
                     _write += size;
                 } while (left > 0);
 
-                if (read_callback.callback && (ring_buffer_readable() >= read_callback.threshold))
+                if (read_callback.callback and (ring_buffer_readable() >= read_callback.threshold))
                     read_callback.callback(parent);
             }
             else
@@ -167,7 +167,7 @@ struct ring_buffer::ring_buffer_implementation {
                     _read += size;
                 } while (left > 0);
 
-                if (write_callback.callback && (ring_buffer_writable() >= write_callback.threshold))
+                if (write_callback.callback and (ring_buffer_writable() >= write_callback.threshold))
                     write_callback.callback(parent);
             }
             else
