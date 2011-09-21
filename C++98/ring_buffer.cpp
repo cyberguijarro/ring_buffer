@@ -89,7 +89,7 @@ struct ring_buffer::ring_buffer_implementation {
         locking::prepare(this);
         read_callback.callback = write_callback.callback = 0;
 
-        if (NULL == (buffer = malloc(capacity))) {
+        if (0 == (buffer = malloc(capacity))) {
             locking::finalize(this);
             throw ring_buffer_out_of_memory_exception();
         }
@@ -101,7 +101,7 @@ struct ring_buffer::ring_buffer_implementation {
 
         locking::prepare(this);
 
-        if (NULL != (buffer = malloc(capacity)))
+        if (0 != (buffer = malloc(capacity)))
             memcpy(buffer, other->buffer, capacity);
         else {
             locking::finalize(this);
@@ -127,7 +127,7 @@ struct ring_buffer::ring_buffer_implementation {
 
 
     void write(const void* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_overflow_exception, ring_buffer_invalid_address_exception) {
-        if (NULL != data) {
+        if (0 != data) {
             locking lock(this);
 
             if (ring_buffer_writable() >= length) {
@@ -153,7 +153,7 @@ struct ring_buffer::ring_buffer_implementation {
 
 
     void read(void* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_underflow_exception, ring_buffer_invalid_address_exception) {
-        if (NULL != data) {
+        if (0 != data) {
             locking lock(this);
 
             if (ring_buffer_readable() >= length) {
