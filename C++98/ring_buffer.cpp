@@ -34,44 +34,42 @@ struct ring_buffer::ring_buffer_implementation {
     };
 
 #ifdef RING_BUFFER_THREAD_SAFETY
-    struct locking {
+    struct lock_guard {
         pthread_mutex_t* mutex;
 
 
-        locking(ring_buffer_implementation* buffer) : mutex(&buffer->lock) { 
+        lock_guard(ring_buffer_implementation* buffer) throw (ring_buffer_concurrency_error_exception) : mutex(&buffer->lock) { 
             if (0 != pthread_mutex_lock(mutex))
                 throw ring_buffer_concurrency_error_exception();
         }
 
 
-        ~locking() { 
+        ~lock_guard() throw (ring_buffer_concurrency_error_exception) { 
             if (0 != pthread_mutex_unlock(mutex))
                 throw ring_buffer_concurrency_error_exception();
         }
-
-
-        static void prepare(ring_buffer_implementation* buffer) {
-            pthread_mutexattr_t attributes;
-
-            if ((0 != pthread_mutexattr_init(&attributes)) || (0 != pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE)) || (0 != pthread_mutex_init(&buffer->lock, &attributes)))
-                throw ring_buffer_concurrency_error_exception();
-        }
-
-
-        static void finalize(ring_buffer_implementation* buffer) {
-            if (0 != pthread_mutex_destroy(&buffer->lock))
-                throw ring_buffer_concurrency_error_exception();
-        }
     };
+   
+
+    static void initialize_mutex(ring_buffer_implementation* buffer) throw (ring_buffer_concurrency_error_exception) {
+        pthread_mutexattr_t attributes;
+
+        if ((0 != pthread_mutexattr_init(&attributes)) || (0 != pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE)) || (0 != pthread_mutex_init(&buffer->lock, &attributes)))
+            throw ring_buffer_concurrency_error_exception();
+    }
+
+
+    static void destroy_mutex(ring_buffer_implementation* buffer) throw (ring_buffer_concurrency_error_exception) {
+        if (0 != pthread_mutex_destroy(&buffer->lock))
+            throw ring_buffer_concurrency_error_exception();
+    }
 
 
     pthread_mutex_t lock;
 #else
-    struct locking {
-        locking(ring_buffer_implementation* buffer) { }
-        static void prepare(ring_buffer_implementation* buffer) { }
-        static void finalize(ring_buffer_implementation* buffer) { }
-    };
+    struct lock_guard { lock_guard(ring_buffer_implementation* buffer) { } };
+    static void initialize_mutex(ring_buffer_implementation* buffer) { }
+    static void destroy_mutex(ring_buffer_implementation* buffer) { }
 #endif
     
 
@@ -86,32 +84,32 @@ struct ring_buffer::ring_buffer_implementation {
 
 
     ring_buffer_implementation(size_t capacity, ring_buffer* parent) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) : capacity(capacity), _read(0), _write(0), parent(parent) {
-        locking::prepare(this);
+        initialize_mutex(this);
         read_callback.callback = write_callback.callback = 0;
 
         if (0 == (buffer = malloc(capacity))) {
-            locking::finalize(this);
+            destroy_mutex(this);
             throw ring_buffer_out_of_memory_exception();
         }
     }
 
 
     ring_buffer_implementation(ring_buffer_implementation* other, ring_buffer* parent) throw (ring_buffer_concurrency_error_exception, ring_buffer_out_of_memory_exception) : capacity(other->capacity), _read(other->_read), _write(other->_write), read_callback(other->read_callback), write_callback(other->write_callback), parent(parent) {
-        locking lock(other);
+        lock_guard lock(other);
 
-        locking::prepare(this);
+        initialize_mutex(this);
 
         if (0 != (buffer = malloc(capacity)))
             memcpy(buffer, other->buffer, capacity);
         else {
-            locking::finalize(this);
+            destroy_mutex(this);
             throw ring_buffer_out_of_memory_exception();
         }
     }
 
 
     void set_read_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) {
-        locking lock(this);
+        lock_guard lock(this);
 
         read_callback.callback = callback;
         read_callback.threshold = threshold;
@@ -119,7 +117,7 @@ struct ring_buffer::ring_buffer_implementation {
 
 
     void set_write_callback(ring_buffer_callback callback, size_t threshold) throw (ring_buffer_concurrency_error_exception) {
-        locking lock(this);
+        lock_guard lock(this);
 
         write_callback.callback = callback;
         write_callback.threshold = threshold;
@@ -128,7 +126,7 @@ struct ring_buffer::ring_buffer_implementation {
 
     void write(const void* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_overflow_exception, ring_buffer_invalid_address_exception) {
         if (0 != data) {
-            locking lock(this);
+            lock_guard lock(this);
 
             if (ring_buffer_writable() >= length) {
                 size_t left = length;
@@ -154,7 +152,7 @@ struct ring_buffer::ring_buffer_implementation {
 
     void read(void* data, size_t length) throw (ring_buffer_concurrency_error_exception, ring_buffer_underflow_exception, ring_buffer_invalid_address_exception) {
         if (0 != data) {
-            locking lock(this);
+            lock_guard lock(this);
 
             if (ring_buffer_readable() >= length) {
                 size_t left = length;
@@ -179,7 +177,7 @@ struct ring_buffer::ring_buffer_implementation {
 
 
     void get_available(size_t& read, size_t& write) throw (ring_buffer_concurrency_error_exception) {
-        locking lock(this);
+        lock_guard lock(this);
 
         read = ring_buffer_readable();
         write = ring_buffer_writable();
@@ -188,11 +186,11 @@ struct ring_buffer::ring_buffer_implementation {
 
     ~ring_buffer_implementation() throw (ring_buffer_concurrency_error_exception) {
         {
-            locking lock(this);
+            lock_guard lock(this);
             free(buffer);
         }
 
-        locking::finalize(this);
+        destroy_mutex(this);
     }
 };
 
