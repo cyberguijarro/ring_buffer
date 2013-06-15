@@ -30,7 +30,7 @@ struct ring_buffer::ring_buffer_implementation {
     };
 
 
-    std::unique_ptr<char> buffer;
+    std::unique_ptr<char[]> buffer; 
     size_t capacity, _read, _write;
     _callback read_callback, write_callback;
     std::recursive_mutex mutex;
